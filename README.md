@@ -40,10 +40,10 @@ A full-stack web application showcasing infinite scrolling functionality with Re
 ### Database Setup
 
 1. Install PostgreSQL and pgAdmin
-2. Create a database named `Todo`
+2. Create a database named `FeedFlow`
 3. Update database credentials in `backend/feedflow/src/main/resources/application.properties` if needed:
    ```properties
-   spring.datasource.url=jdbc:postgresql://localhost:5432/Todo
+   spring.datasource.url=jdbc:postgresql://localhost:5432/FeedFlow
    spring.datasource.username=postgres
    spring.datasource.password=1234
    ```

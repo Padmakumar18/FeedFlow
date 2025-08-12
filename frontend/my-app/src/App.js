@@ -1,9 +1,5 @@
-import React, {
-  useState,
-  useEffect,
-  useRef,
-} from "https://cdn.jsdelivr.net/npm/react@18.2.0/+esm";
-import axios from "https://cdn.jsdelivr.net/npm/axios@1.7.2/+esm";
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import axios from "axios";
 import PostCard from "./components/PostCard";
 import "./styles/App.css";
 
@@ -12,50 +8,61 @@ const App = () => {
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  const [error, setError] = useState(null);
   const loaderRef = useRef(null);
 
-  const fetchPosts = async (pageNum) => {
-    setLoading(true);
-    try {
-      const response = await axios.get(
-        `http://localhost:8080/api/posts?page=${pageNum}&limit=10`
-      );
-      const newPosts = response.data.content;
-      setPosts((prev) => (pageNum === 0 ? newPosts : [...prev, ...newPosts]));
-      setHasMore(!response.data.last);
-    } catch (error) {
-      console.error("Error fetching posts:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const fetchPosts = useCallback(
+    async (pageNum) => {
+      if (loading) return;
+
+      setLoading(true);
+      setError(null);
+
+      try {
+        const response = await axios.get(
+          `http://localhost:8080/api/posts?page=${pageNum}&limit=10`
+        );
+        const newPosts = response.data.content;
+
+        setPosts((prev) => (pageNum === 0 ? newPosts : [...prev, ...newPosts]));
+        setHasMore(!response.data.last);
+        setPage(pageNum + 1);
+      } catch (error) {
+        console.error("Error fetching posts:", error);
+        setError("Failed to load posts. Please try again.");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [loading]
+  );
 
   useEffect(() => {
-    // Load first 20 posts (2 pages)
-    Promise.all([fetchPosts(0), fetchPosts(1)]).then(() => setPage(2));
-  }, []);
+    // Load initial posts
+    fetchPosts(0);
+  }, [fetchPosts]);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting && hasMore && !loading) {
           fetchPosts(page);
-          setPage((prev) => prev + 1);
         }
       },
       { threshold: 0.1 }
     );
 
-    if (loaderRef.current) {
-      observer.observe(loaderRef.current);
+    const currentLoader = loaderRef.current;
+    if (currentLoader) {
+      observer.observe(currentLoader);
     }
 
     return () => {
-      if (loaderRef.current) {
-        observer.unobserve(loaderRef.current);
+      if (currentLoader) {
+        observer.unobserve(currentLoader);
       }
     };
-  }, [page, hasMore, loading]);
+  }, [page, hasMore, loading, fetchPosts]);
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col items-center py-6">
@@ -64,8 +71,29 @@ const App = () => {
         {posts.map((post) => (
           <PostCard key={post.id} post={post} />
         ))}
-        {loading && <p className="text-center">Loading...</p>}
-        {hasMore && <div ref={loaderRef} className="h-10"></div>}
+        {loading && (
+          <div className="text-center py-4">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <p className="mt-2">Loading more posts...</p>
+          </div>
+        )}
+        {error && (
+          <div className="text-center py-4 text-red-600">
+            <p>{error}</p>
+            <button
+              onClick={() => fetchPosts(page)}
+              className="mt-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+        {!hasMore && posts.length > 0 && (
+          <p className="text-center text-gray-500 py-4">
+            No more posts to load
+          </p>
+        )}
+        {hasMore && !loading && <div ref={loaderRef} className="h-10"></div>}
       </div>
     </div>
   );
