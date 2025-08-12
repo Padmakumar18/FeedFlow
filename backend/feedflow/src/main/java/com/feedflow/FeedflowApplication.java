@@ -1,4 +1,4 @@
-package com.feedflow.feedflow;
+package com.feedflow;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -9,5 +9,4 @@ public class FeedflowApplication {
 	public static void main(String[] args) {
 		SpringApplication.run(FeedflowApplication.class, args);
 	}
-
 }
