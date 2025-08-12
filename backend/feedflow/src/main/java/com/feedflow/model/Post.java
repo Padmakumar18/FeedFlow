@@ -1,4 +1,4 @@
-package com.feedflow.feedflow.model;
+package com.feedflow.model;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;

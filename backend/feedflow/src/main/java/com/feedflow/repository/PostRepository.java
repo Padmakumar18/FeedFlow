@@ -1,4 +1,4 @@
-package com.feedflow.feedflow.repository;
+package com.feedflow.repository;
 
 import com.feedflow.model.Post;
 import org.springframework.data.jpa.repository.JpaRepository;
