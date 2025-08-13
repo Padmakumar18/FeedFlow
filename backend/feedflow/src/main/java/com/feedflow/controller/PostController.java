@@ -29,7 +29,6 @@ public class PostController {
 
         logger.info("Fetching posts - Page: {}, Limit: {}", page, limit);
 
-        // Limit the maximum page size to prevent abuse
         int actualLimit = Math.min(limit, 50);
         Pageable pageable = PageRequest.of(page, actualLimit);
 

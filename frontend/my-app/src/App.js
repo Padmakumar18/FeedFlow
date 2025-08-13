@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import axios from "axios";
 import PostCard from "./components/PostCard";
-import DebugPanel from "./components/DebugPanel";
+import "bootstrap/dist/css/bootstrap.min.css";
 import "./styles/App.css";
 
 const App = () => {
@@ -11,6 +11,7 @@ const App = () => {
   const [initialLoading, setInitialLoading] = useState(true); // Separate state for initial loading
   const [hasMore, setHasMore] = useState(true);
   const [error, setError] = useState(null);
+  const [approachingBottom, setApproachingBottom] = useState(false); // Track when user is near bottom
   const loaderRef = useRef(null);
   const loadingRef = useRef(false);
   const currentRequestRef = useRef(null); // Track current request for cancellation
@@ -103,6 +104,7 @@ const App = () => {
   useEffect(() => {
     if (!hasMore || loadingRef.current) return;
 
+    // Primary intersection observer for precise detection
     const observer = new IntersectionObserver(
       (entries) => {
         const target = entries[0];
@@ -112,45 +114,76 @@ const App = () => {
         }
       },
       {
-        threshold: 0.1,
-        rootMargin: "50px", // Load content 50px before reaching the loader
+        threshold: 0.01, // Reduced from 0.1 to 0.01 for faster detection
+        rootMargin: "100px", // Increased from 50px to 100px for earlier triggering
       }
     );
+
+    // Backup scroll event listener for immediate response
+    const handleScroll = () => {
+      if (loadingRef.current || !hasMore) return;
+
+      const scrollTop = window.scrollY || document.documentElement.scrollTop;
+      const windowHeight = window.innerHeight;
+      const documentHeight = document.documentElement.scrollHeight;
+
+      // Check if user is approaching bottom (within 300px)
+      const isApproaching = scrollTop + windowHeight >= documentHeight - 300;
+      setApproachingBottom(isApproaching);
+
+      // Trigger loading when user is within 200px of bottom
+      if (scrollTop + windowHeight >= documentHeight - 200) {
+        console.log(
+          `Scroll detected near bottom, loading additional page ${page}`
+        );
+        fetchPosts(page, false);
+      }
+    };
 
     const currentLoader = loaderRef.current;
     if (currentLoader) {
       observer.observe(currentLoader);
     }
 
+    // Add scroll event listener
+    window.addEventListener("scroll", handleScroll, { passive: true });
+
     return () => {
       if (currentLoader) {
         observer.unobserve(currentLoader);
       }
+      window.removeEventListener("scroll", handleScroll);
     };
   }, [page, hasMore, fetchPosts]);
 
   // Render loading state while fetching initial data
   if (initialLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center">
+      <div className="d-flex align-items-center justify-content-center min-vh-100 bg-light">
         <div className="text-center">
-          <div className="relative mb-6">
-            <div className="w-20 h-20 border-4 border-blue-200 rounded-full animate-spin"></div>
-            <div className="absolute top-0 left-0 w-20 h-20 border-4 border-transparent border-t-blue-600 rounded-full animate-spin"></div>
-          </div>
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">
-            Loading FeedFlow
-          </h2>
-          <p className="text-gray-600">Fetching your personalized content...</p>
-          <div className="mt-4 flex justify-center space-x-2">
-            <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+          <div className="position-relative mb-4">
             <div
-              className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"
-              style={{ animationDelay: "0.2s" }}
+              className="spinner-border text-primary"
+              role="status"
+              style={{ width: "5rem", height: "5rem" }}
+            >
+              <span className="visually-hidden">Loading...</span>
+            </div>
+          </div>
+          <h2 className="h2 fw-bold text-dark mb-2">Loading FeedFlow</h2>
+          <p className="text-muted">Fetching your personalized content...</p>
+          <div className="mt-3 d-flex justify-content-center gap-2">
+            <div
+              className="bg-primary rounded-circle pulse-dot"
+              style={{ width: "8px", height: "8px" }}
             ></div>
             <div
-              className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"
-              style={{ animationDelay: "0.4s" }}
+              className="bg-primary rounded-circle pulse-dot"
+              style={{ width: "8px", height: "8px", animationDelay: "0.2s" }}
+            ></div>
+            <div
+              className="bg-primary rounded-circle pulse-dot"
+              style={{ width: "8px", height: "8px", animationDelay: "0.4s" }}
             ></div>
           </div>
         </div>
@@ -159,14 +192,19 @@ const App = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+    <div className="min-vh-100 bg-light">
       {/* Enhanced sticky header */}
-      <header className="sticky top-0 bg-white/80 backdrop-blur-md shadow-lg z-50 border-b border-gray-200/50">
-        <div className="max-w-7xl mx-auto py-6 px-6">
-          <div className="flex items-center justify-center space-x-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
+      <header className="sticky-top bg-white shadow-lg border-bottom">
+        <div className="container-fluid py-4">
+          <div className="d-flex align-items-center justify-content-center gap-3">
+            <div
+              className="d-flex align-items-center justify-content-center bg-primary rounded-3 shadow"
+              style={{ width: "40px", height: "40px" }}
+            >
               <svg
-                className="w-6 h-6 text-white"
+                className="text-white"
+                width="24"
+                height="24"
                 fill="currentColor"
                 viewBox="0 0 20 20"
               >
@@ -174,24 +212,29 @@ const App = () => {
                 <path d="M15 7v2a4 4 0 01-4 4H9.828l-1.766 1.767c.28.149.599.233.938.233h2l3 3v-3h2a2 2 0 002-2V9a2 2 0 00-2-2h-1z" />
               </svg>
             </div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+            <h1 className="h1 fw-bold text-primary mb-0 gradient-text">
               FeedFlow
             </h1>
           </div>
-          <p className="text-center text-gray-600 mt-2 font-medium">
+          <p className="text-center text-muted mt-2 fw-medium mb-0">
             Discover amazing content
           </p>
         </div>
       </header>
 
       {/* Enhanced feed container with grid layout */}
-      <main className="max-w-7xl mx-auto px-6 py-8">
+      <main className="container-fluid py-4">
         {/* Welcome message for empty state */}
         {posts.length === 0 && !loading && !error && (
-          <div className="text-center py-12">
-            <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-blue-100 to-purple-100 rounded-full flex items-center justify-center">
+          <div className="text-center py-5">
+            <div
+              className="d-flex align-items-center justify-content-center bg-primary bg-opacity-10 rounded-circle mx-auto mb-4"
+              style={{ width: "96px", height: "96px" }}
+            >
               <svg
-                className="w-12 h-12 text-blue-600"
+                className="text-primary"
+                width="48"
+                height="48"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -204,21 +247,19 @@ const App = () => {
                 />
               </svg>
             </div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">
-              Welcome to FeedFlow
-            </h2>
-            <p className="text-gray-600">
+            <h2 className="h2 fw-bold text-dark mb-2">Welcome to FeedFlow</h2>
+            <p className="text-muted">
               Your personalized content feed is loading...
             </p>
           </div>
         )}
 
         {/* Posts grid with responsive columns */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 auto-rows-fr">
+        <div className="row g-4">
           {posts.map((post, index) => (
             <div
               key={post.id}
-              className="fade-in"
+              className="col-12 col-sm-6 col-lg-4 col-xl-3 fade-in"
               style={{ animationDelay: `${index * 0.1}s` }}
             >
               <PostCard post={post} />
@@ -228,17 +269,20 @@ const App = () => {
 
         {/* Enhanced loading state for additional data */}
         {loading && (
-          <div className="text-center py-12">
-            <div className="inline-flex flex-col items-center space-y-4">
-              <div className="relative">
-                <div className="w-16 h-16 border-4 border-blue-200 rounded-full animate-spin"></div>
-                <div className="absolute top-0 left-0 w-16 h-16 border-4 border-transparent border-t-blue-600 rounded-full animate-spin"></div>
+          <div className="text-center py-5">
+            <div className="d-flex flex-column align-items-center gap-3">
+              <div
+                className="spinner-border text-primary"
+                role="status"
+                style={{ width: "4rem", height: "4rem" }}
+              >
+                <span className="visually-hidden">Loading...</span>
               </div>
               <div className="text-center">
-                <p className="text-lg font-semibold text-gray-700 mb-1">
+                <p className="h5 fw-semibold text-dark mb-1">
                   Loading more posts...
                 </p>
-                <p className="text-sm text-gray-500">
+                <p className="text-muted small">
                   Please wait while we fetch amazing content
                 </p>
               </div>
@@ -248,11 +292,16 @@ const App = () => {
 
         {/* Enhanced error state */}
         {error && (
-          <div className="text-center py-12">
-            <div className="max-w-md mx-auto">
-              <div className="w-20 h-20 mx-auto mb-6 bg-red-100 rounded-full flex items-center justify-center">
+          <div className="text-center py-5">
+            <div className="mx-auto" style={{ maxWidth: "28rem" }}>
+              <div
+                className="d-flex align-items-center justify-content-center bg-danger bg-opacity-10 rounded-circle mx-auto mb-4"
+                style={{ width: "80px", height: "80px" }}
+              >
                 <svg
-                  className="w-10 h-10 text-red-600"
+                  className="text-danger"
+                  width="40"
+                  height="40"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -265,16 +314,17 @@ const App = () => {
                   />
                 </svg>
               </div>
-              <h3 className="text-xl font-semibold text-gray-800 mb-2">
+              <h3 className="h4 fw-semibold text-dark mb-2">
                 Oops! Something went wrong
               </h3>
-              <p className="text-gray-600 mb-6">{error}</p>
+              <p className="text-muted mb-4">{error}</p>
               <button
                 onClick={() => fetchPosts(page - 1, false)}
-                className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-purple-700 transform hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-xl"
+                className="btn btn-primary btn-lg d-inline-flex align-items-center gap-2 shadow"
               >
                 <svg
-                  className="w-5 h-5 mr-2"
+                  width="20"
+                  height="20"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -294,11 +344,16 @@ const App = () => {
 
         {/* Enhanced end of feed message */}
         {!hasMore && posts.length > 0 && (
-          <div className="text-center py-12">
-            <div className="max-w-md mx-auto">
-              <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-green-100 to-blue-100 rounded-full flex items-center justify-center">
+          <div className="text-center py-5">
+            <div className="mx-auto" style={{ maxWidth: "28rem" }}>
+              <div
+                className="d-flex align-items-center justify-content-center bg-success bg-opacity-10 rounded-circle mx-auto mb-4"
+                style={{ width: "80px", height: "80px" }}
+              >
                 <svg
-                  className="w-10 h-10 text-green-600"
+                  className="text-success"
+                  width="40"
+                  height="40"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -311,10 +366,10 @@ const App = () => {
                   />
                 </svg>
               </div>
-              <h3 className="text-xl font-semibold text-gray-800 mb-2">
+              <h3 className="h4 fw-semibold text-dark mb-2">
                 You've reached the end!
               </h3>
-              <p className="text-gray-600">
+              <p className="text-muted">
                 🎉 Congratulations! You've seen all the amazing content we have
                 for you.
               </p>
@@ -324,26 +379,78 @@ const App = () => {
 
         {/* Bottom loading indicator for infinite scroll */}
         {hasMore && (
-          <div ref={loaderRef} className="py-8">
+          <div ref={loaderRef} className="py-5 bottom-loader-state">
             {loading ? (
-              <div className="flex flex-col items-center justify-center space-y-4">
-                <div className="relative">
-                  <div className="w-12 h-12 border-4 border-blue-200 rounded-full animate-spin"></div>
-                  <div className="absolute top-0 left-0 w-12 h-12 border-4 border-transparent border-t-blue-600 rounded-full animate-spin"></div>
+              <div className="d-flex flex-column align-items-center justify-content-center gap-3 immediate-loading show">
+                <div
+                  className="spinner-border text-primary"
+                  role="status"
+                  style={{ width: "3rem", height: "3rem" }}
+                >
+                  <span className="visually-hidden">Loading...</span>
                 </div>
                 <div className="text-center">
-                  <p className="text-base font-medium text-gray-700">
+                  <p className="fw-medium text-dark mb-1">
                     Loading more posts...
                   </p>
-                  <p className="text-sm text-gray-500">
+                  <p className="text-muted small">
                     Scroll to load more amazing content
                   </p>
                 </div>
               </div>
+            ) : approachingBottom ? (
+              <div className="d-flex flex-column align-items-center justify-content-center gap-2 py-3 immediate-loading show">
+                <div className="d-flex align-items-center gap-2">
+                  <div
+                    className="bg-primary rounded-circle approaching-pulse"
+                    style={{ width: "12px", height: "12px" }}
+                  ></div>
+                  <div
+                    className="bg-primary rounded-circle approaching-pulse"
+                    style={{
+                      width: "12px",
+                      height: "12px",
+                      animationDelay: "0.2s",
+                    }}
+                  ></div>
+                  <div
+                    className="bg-primary rounded-circle approaching-pulse"
+                    style={{
+                      width: "12px",
+                      height: "12px",
+                      animationDelay: "0.4s",
+                    }}
+                  ></div>
+                </div>
+                <p className="text-primary fw-medium small mb-0">
+                  Almost there! Keep scrolling...
+                </p>
+              </div>
             ) : (
-              <div className="flex flex-col items-center justify-center space-y-3 py-4">
-                <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
-                <p className="text-sm text-gray-500 font-medium">
+              <div className="d-flex flex-column align-items-center justify-content-center gap-2 py-3 immediate-loading show">
+                <div className="d-flex align-items-center gap-2">
+                  <div
+                    className="bg-primary bg-opacity-75 rounded-circle pulse-dot"
+                    style={{ width: "8px", height: "8px" }}
+                  ></div>
+                  <div
+                    className="bg-primary bg-opacity-75 rounded-circle pulse-dot"
+                    style={{
+                      width: "8px",
+                      height: "8px",
+                      animationDelay: "0.2s",
+                    }}
+                  ></div>
+                  <div
+                    className="bg-primary bg-opacity-75 rounded-circle pulse-dot"
+                    style={{
+                      width: "8px",
+                      height: "8px",
+                      animationDelay: "0.4s",
+                    }}
+                  ></div>
+                </div>
+                <p className="text-muted fw-medium small mb-0">
                   Scroll down to load more
                 </p>
               </div>
@@ -351,14 +458,6 @@ const App = () => {
           </div>
         )}
       </main>
-
-      {/* <DebugPanel
-        posts={posts}
-        page={page}
-        loading={loading}
-        hasMore={hasMore}
-        error={error}
-      /> */}
     </div>
   );
 };
